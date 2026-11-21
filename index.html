@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="A drag-anywhere color-matching puzzle: slide bricks through open squares — including diagonally — to connect same-color chains with their gate.">
+<meta name="theme-color" content="#243447">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Slide & Sort">
+<title>Slide &amp; Sort</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:#c9f5e0;
+    --bg-2:#c3d9ff;
+    --bg-3:#ffd6ea;
+    --panel:#ffffff;
+    --panel-line:#e4e9f2;
+    --ink:#243447;
+    --ink-soft:#5c6b81;
+    --shadow: 0 18px 40px -18px rgba(36,52,71,0.35);
+  }
+  :root{ --hint-bg: rgba(36,52,71,0.14); --hint-border: rgba(36,52,71,0.55); }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg-1:#0f2a22;
+      --bg-2:#151c33;
+      --bg-3:#2a1730;
+      --panel:#1c2333;
+      --panel-line:#2c3446;
+      --ink:#f2f5fa;
+      --ink-soft:#a9b4c6;
+      --shadow: 0 18px 40px -18px rgba(0,0,0,0.6);
+      --hint-bg: rgba(255,255,255,0.16);
+      --hint-border: rgba(255,255,255,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-1:#0f2a22;
+    --bg-2:#151c33;
+    --bg-3:#2a1730;
+    --panel:#1c2333;
+    --panel-line:#2c3446;
+    --ink:#f2f5fa;
+    --ink-soft:#a9b4c6;
+    --shadow: 0 18px 40px -18px rgba(0,0,0,0.6);
+    --hint-bg: rgba(255,255,255,0.16);
+    --hint-border: rgba(255,255,255,0.6);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background: radial-gradient(circle at 12% 8%, var(--bg-1), transparent 50%),
+                radial-gradient(circle at 90% 15%, var(--bg-3), transparent 48%),
+                radial-gradient(circle at 50% 100%, var(--bg-2), transparent 55%),
+                linear-gradient(160deg, var(--bg-1), var(--bg-2));
+    font-family:'Nunito', system-ui, -apple-system, sans-serif;
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 28px 16px 48px;
+    overflow-x:hidden;
+  }
+
+  .wrap{ width:100%; max-width:560px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+
+  header{ text-align:center; }
+  h1{
+    font-family:'Baloo 2', system-ui, sans-serif;
+    font-weight:800;
+    font-size: clamp(1.8rem, 6vw, 2.4rem);
+    margin: 0 0 4px;
+    letter-spacing:0.2px;
+  }
+  header p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:0.92rem;
+    font-weight:700;
+    line-height:1.4;
+  }
+
+  .hud{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:18px;
+    padding:10px 16px;
+    box-shadow: var(--shadow);
+  }
+  .hud .stat{ display:flex; flex-direction:column; }
+  .hud .stat .label{ font-size:0.68rem; color:var(--ink-soft); font-weight:700; }
+  .hud .stat .value{ font-family:'Baloo 2',sans-serif; font-size:1.15rem; font-weight:700; }
+  .hud-sub{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+  }
+  .best-label{ font-size:0.75rem; color:var(--ink-soft); font-weight:700; }
+  .dots{ display:flex; gap:6px; }
+  .dots span{ width:9px; height:9px; border-radius:50%; background:var(--panel-line); display:inline-block; }
+  .dots span.done{ background:#3fa85e; }
+  .dots span.current{ background:var(--ink); transform:scale(1.25); }
+
+  .board-frame{
+    position:relative;
+    width:100%;
+    max-width:520px;
+    aspect-ratio:1/1;
+    padding: 26px;
+  }
+  .board{
+    position:relative;
+    width:100%;
+    height:100%;
+    background:var(--panel);
+    border-radius:22px;
+    box-shadow: var(--shadow);
+    overflow:visible;
+  }
+  .cell-grid{
+    position:absolute; inset:0;
+    display:grid;
+    border-radius:22px;
+    overflow:hidden;
+  }
+  .cell{
+    border:1px solid var(--panel-line);
+  }
+
+  .gate{
+    position:absolute;
+    border-radius:8px;
+    box-shadow: 0 4px 10px -4px rgba(0,0,0,0.4);
+  }
+
+  .block{
+    position:absolute;
+    border-radius:14px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition: left 0.22s cubic-bezier(.32,.72,.35,1), top 0.22s cubic-bezier(.32,.72,.35,1), opacity 0.22s ease, transform 0.35s cubic-bezier(.32,.72,.35,1);
+    box-shadow: inset 0 -6px 0 rgba(0,0,0,0.14), inset 0 4px 0 rgba(255,255,255,0.30), 0 5px 10px -5px rgba(0,0,0,0.4);
+    touch-action:none;
+  }
+  .block:active{ transform: scale(0.93); }
+  .block .studs{
+    position:absolute; inset:16%;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:14%;
+  }
+  .block .studs span{
+    border-radius:50%;
+    background: radial-gradient(circle at 32% 28%, rgba(255,255,255,0.85), rgba(255,255,255,0.08) 55%, rgba(0,0,0,0.12) 100%);
+    box-shadow: inset 0 -2px 2px rgba(0,0,0,0.22);
+  }
+  .block.clearing{ transform: scale(0.35); opacity:0; }
+  .block.armed{ box-shadow: 0 0 0 3px var(--ink), inset 0 -6px 0 rgba(0,0,0,0.14), inset 0 4px 0 rgba(255,255,255,0.30), 0 5px 10px -5px rgba(0,0,0,0.4); }
+
+  .move-glow{
+    position:absolute;
+    border-radius:14px;
+    opacity:0.28;
+    z-index:4;
+    pointer-events:none;
+    animation: glowPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes glowPulse{ 0%,100%{ opacity:0.18; } 50%{ opacity:0.42; } }
+  @media (prefers-reduced-motion: reduce){
+    .move-glow{ animation:none; opacity:0.3; }
+  }
+
+  .move-hint{
+    position:absolute;
+    border-radius:12px;
+    background: var(--hint-bg);
+    border:2px dashed var(--hint-border);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    z-index:6;
+    animation: hintPulse 1s ease-in-out infinite;
+  }
+  .move-hint svg{ width:38%; height:38%; }
+  @keyframes hintPulse{ 0%,100%{ opacity:0.5; transform:scale(0.94); } 50%{ opacity:1; transform:scale(1); } }
+  @media (prefers-reduced-motion: reduce){
+    .move-hint{ animation:none; opacity:0.85; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .block{ transition: left 0.01s linear, top 0.01s linear, opacity 0.15s linear; }
+  }
+
+  .controls{
+    width:100%;
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    flex-wrap:wrap;
+  }
+  button{
+    font-family:'Nunito', sans-serif;
+    font-weight:800;
+    font-size:0.92rem;
+    border:none;
+    border-radius:14px;
+    padding:12px 18px;
+    cursor:pointer;
+    color:#fff;
+    background: var(--ink);
+    box-shadow: 0 8px 18px -8px rgba(0,0,0,0.4);
+    transition: transform 0.1s ease;
+  }
+  button:active{ transform: scale(0.96); }
+  button.ghost{
+    background:transparent;
+    color:var(--ink);
+    border:2px solid var(--panel-line);
+    box-shadow:none;
+  }
+
+  .toast{
+    position:fixed;
+    left:50%; bottom:28px;
+    transform: translateX(-50%) translateY(20px);
+    background:var(--ink);
+    color: var(--panel);
+    padding:14px 22px;
+    border-radius:16px;
+    font-weight:800;
+    font-family:'Baloo 2', sans-serif;
+    box-shadow: var(--shadow);
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    text-align:center;
+    z-index:20;
+  }
+  .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+  .confetti-piece{
+    position:fixed;
+    top:-10px;
+    width:8px; height:14px;
+    border-radius:2px;
+    opacity:0.95;
+    pointer-events:none;
+    z-index:15;
+    animation: fall linear forwards;
+  }
+  @keyframes fall{
+    to{ transform: translateY(110vh) rotate(540deg); opacity:0.2; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .confetti-piece{ display:none; }
+  }
+
+  footer{
+    color:var(--ink-soft);
+    font-size:0.8rem;
+    text-align:center;
+    max-width:460px;
+    line-height:1.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Slide &amp; Sort</h1>
+    <p>Drag a brick anywhere &mdash; even diagonally &mdash; through open squares, just like sliding it with your finger. Get same-color bricks to connect all the way to their matching gate and the whole group clears out together.</p>
+  </header>
+
+  <div class="hud">
+    <div class="stat">
+      <span class="label">Level</span>
+      <span class="value" id="levelLabel">1 / 6</span>
+    </div>
+    <div class="stat" style="align-items:center;">
+      <span class="label">Moves</span>
+      <span class="value" id="movesLabel">0</span>
+    </div>
+    <div class="stat" style="align-items:flex-end;">
+      <span class="label">Bricks left</span>
+      <span class="value" id="remainingLabel">0</span>
+    </div>
+  </div>
+  <div class="hud-sub">
+    <div class="dots" id="dots"></div>
+    <span class="best-label" id="bestLabel"></span>
+  </div>
+
+  <div class="board-frame">
+    <div class="board" id="board">
+      <div class="cell-grid" id="cellGrid"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="ghost" id="resetBtn">New shuffle</button>
+    <button id="muteBtn">Sound: on</button>
+    <button class="ghost" id="musicBtn">Music: off</button>
+  </div>
+
+  <footer>Drag a brick freely across any open squares &mdash; up, down, sideways or diagonally &mdash; and drop it wherever the open space lets you reach. A connected chain of same-color bricks clears out the moment it touches its colored gate on the edge, not just when it touches other bricks of its own color.</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- Sound (procedural, no external files) ----------
+  var AudioCtor = window.AudioContext || window.webkitAudioContext;
+  var actx = null;
+  var soundOn = true;
+  function ensureCtx(){
+    if(!AudioCtor) return null;
+    if(!actx){ try{ actx = new AudioCtor(); }catch(e){ actx = null; } }
+    if(actx && actx.state === 'suspended'){ actx.resume().catch(function(){}); }
+    return actx;
+  }
+  function tone(freq, dur, type, startGain, delay){
+    if(!soundOn) return;
+    var ctx = ensureCtx();
+    if(!ctx) return;
+    try{
+      var t0 = ctx.currentTime + (delay||0);
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(startGain||0.16, t0 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.02);
+    }catch(e){}
+  }
+  function sfxClick(){ tone(480, 0.08, 'triangle', 0.13); }
+  function sfxWall(){ tone(150,0.15,'square',0.09); }
+  function sfxScore(n){
+    var base = 560;
+    for(var i=0;i<Math.min(n,6);i++){
+      tone(base + i*130, 0.16, 'sine', 0.14, i*0.06);
+    }
+  }
+  function sfxWin(){ tone(523,0.14,'sine',0.16,0); tone(659,0.14,'sine',0.16,0.12); tone(784,0.14,'sine',0.16,0.24); tone(1046,0.28,'sine',0.16,0.36); }
+
+  // ---------- Background music (procedural, no external files) ----------
+  var musicOn = false;
+  var musicTimer = null;
+  var musicChordIndex = 0;
+  var MUSIC_CHORDS = [
+    [261.63, 329.63, 392.00],   // C major
+    [220.00, 261.63, 329.63],   // A minor
+    [174.61, 220.00, 261.63],   // F major
+    [196.00, 246.94, 293.66]    // G major (sus-ish, gentle)
+  ];
+  function playChord(freqs, duration){
+    var ctx = ensureCtx();
+    if(!ctx) return;
+    var t0 = ctx.currentTime;
+    freqs.forEach(function(f, i){
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(0.028, t0 + 1.0);
+      gain.gain.linearRampToValueAtTime(0.0001, t0 + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + duration + 0.05);
+      // a soft high octave sparkle on the root note for gentle texture
+      if(i===0){
+        var osc2 = ctx.createOscillator();
+        var gain2 = ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(f*2, t0+0.3);
+        gain2.gain.setValueAtTime(0.0001, t0+0.3);
+        gain2.gain.linearRampToValueAtTime(0.012, t0+1.1);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, t0+duration);
+        osc2.connect(gain2).connect(ctx.destination);
+        osc2.start(t0+0.3);
+        osc2.stop(t0+duration+0.05);
+      }
+    });
+  }
+  function scheduleMusic(){
+    if(!musicOn) return;
+    playChord(MUSIC_CHORDS[musicChordIndex % MUSIC_CHORDS.length], 4.3);
+    musicChordIndex++;
+    musicTimer = setTimeout(scheduleMusic, 4000);
+  }
+  function startMusic(){
+    if(musicTimer) return;
+    ensureCtx();
+    scheduleMusic();
+  }
+  function stopMusic(){
+    if(musicTimer){ clearTimeout(musicTimer); musicTimer = null; }
+  }
+
+  // ---------- Palette ----------
+  var PALETTE_POOL = [
+    {name:'red',    main:'#ff6b6b', dark:'#e0524f'},
+    {name:'blue',   main:'#4ea8de', dark:'#3585b8'},
+    {name:'green',  main:'#5ecb7a', dark:'#3fa85e'},
+    {name:'yellow', main:'#ffce3d', dark:'#e0a90f'},
+    {name:'purple', main:'#b98af0', dark:'#9760d6'},
+    {name:'slate',  main:'#5a6579', dark:'#3c4453'},
+    {name:'ivory',  main:'#e7ecf5', dark:'#c3cbd9'},
+    {name:'orange', main:'#ff9f43', dark:'#e07f1a'},
+    {name:'teal',   main:'#2fc3d2', dark:'#1f96a3'}
+  ];
+
+  var LEVEL_CONFIG = [
+    {n:5, colors:3, shuffles:35},
+    {n:6, colors:4, shuffles:65},
+    {n:6, colors:5, shuffles:95},
+    {n:7, colors:6, shuffles:130},
+    {n:7, colors:7, shuffles:170},
+    {n:8, colors:8, shuffles:210}
+  ];
+
+  var DIRS = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+
+  function shuffleArray(arr){
+    for(var i=arr.length-1;i>0;i--){
+      var j = Math.floor(Math.random()*(i+1));
+      var t = arr[i]; arr[i]=arr[j]; arr[j]=t;
+    }
+    return arr;
+  }
+
+  // ---------- State ----------
+  var levelIndex = 0;
+  var bestLevel = 0;
+  try{
+    var saved = localStorage.getItem('slideSortV2Best');
+    if(saved !== null){ bestLevel = Math.max(0, Math.min(LEVEL_CONFIG.length-1, parseInt(saved,10)||0)); }
+  }catch(e){}
+  levelIndex = bestLevel;
+  var runStartedAtZero = (levelIndex === 0);
+
+  var bestMoves = null;
+  try{
+    var savedMoves = localStorage.getItem('slideSortV2BestMoves');
+    if(savedMoves !== null){ bestMoves = parseInt(savedMoves,10); if(isNaN(bestMoves)) bestMoves = null; }
+  }catch(e){}
+  var sessionMoves = 0;
+
+  var N = 0;
+  var cellSize = 0;
+  var blocks = [];   // {color, gridX, gridY, el}
+  var gates = [];    // {edge, index, color, el}
+  var palette = {};  // name -> {main,dark}
+  var animating = false;
+
+  var boardEl = document.getElementById('board');
+  var cellGridEl = document.getElementById('cellGrid');
+  var levelLabelEl = document.getElementById('levelLabel');
+  var remainingLabelEl = document.getElementById('remainingLabel');
+  var movesLabelEl = document.getElementById('movesLabel');
+  var bestLabelEl = document.getElementById('bestLabel');
+  var dotsEl = document.getElementById('dots');
+  var toastEl = document.getElementById('toast');
+  var resetBtn = document.getElementById('resetBtn');
+  var muteBtn = document.getElementById('muteBtn');
+  var musicBtn = document.getElementById('musicBtn');
+
+  function refreshBestLabel(){
+    bestLabelEl.textContent = (bestMoves!==null) ? ('Best full run: '+bestMoves+' moves') : '';
+  }
+
+  function buildDots(){
+    dotsEl.innerHTML = '';
+    for(var i=0;i<LEVEL_CONFIG.length;i++){
+      var s = document.createElement('span');
+      if(i < levelIndex) s.className = 'done';
+      else if(i === levelIndex) s.className = 'current';
+      dotsEl.appendChild(s);
+    }
+  }
+
+  function showToast(msg, duration){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){ toastEl.classList.remove('show'); }, duration || 1600);
+  }
+
+  // ---------- Level generation ----------
+  // Border (non-corner) candidate seed cells, each tagged with its edge + index.
+  function borderCandidates(n){
+    var list = [];
+    for(var x=1;x<n-1;x++){
+      list.push({x:x, y:0, edge:'top', index:x});
+      list.push({x:x, y:n-1, edge:'bottom', index:x});
+    }
+    for(var y=1;y<n-1;y++){
+      list.push({x:0, y:y, edge:'left', index:y});
+      list.push({x:n-1, y:y, edge:'right', index:y});
+    }
+    return list;
+  }
+
+  function pickSeeds(n, count){
+    var cands = shuffleArray(borderCandidates(n));
+    return cands.slice(0, count);
+  }
+
+  // Multi-source BFS "territory growth" -> connected regions, one per seed/color.
+  function growOwners(n, seeds){
+    var owner = new Array(n*n).fill(-1);
+    var frontier = seeds.map(function(s,i){ owner[s.y*n+s.x]=i; return {x:s.x,y:s.y,o:i}; });
+    while(frontier.length){
+      shuffleArray(frontier);
+      var next = [];
+      for(var k=0;k<frontier.length;k++){
+        var cell = frontier[k];
+        for(var d=0; d<DIRS.length; d++){
+          var nx = cell.x+DIRS[d].x, ny = cell.y+DIRS[d].y;
+          if(nx<0||ny<0||nx>=n||ny>=n) continue;
+          var idx = ny*n+nx;
+          if(owner[idx]===-1){ owner[idx]=cell.o; next.push({x:nx,y:ny,o:cell.o}); }
+        }
+      }
+      frontier = next;
+    }
+    return owner;
+  }
+
+  function buildLevel(cfg){
+    var n = cfg.n;
+    var colorDefs = shuffleArray(PALETTE_POOL.slice()).slice(0, cfg.colors);
+    palette = {};
+    colorDefs.forEach(function(c){ palette[c.name] = c; });
+
+    var seeds = pickSeeds(n, cfg.colors);
+    var owner = growOwners(n, seeds);
+
+    // board[y][x] = colorName or null
+    var board = [];
+    for(var y=0;y<n;y++){
+      var row = [];
+      for(var x=0;x<n;x++){ row.push(colorDefs[owner[y*n+x]].name); }
+      board.push(row);
+    }
+
+    // pick several blank cells (not seeds) so multiple bricks are free to move
+    // in any direction at once, instead of a single 15-puzzle chokepoint.
+    var seedKeys = {};
+    seeds.forEach(function(s){ seedKeys[s.y+'_'+s.x]=true; });
+    var options = [];
+    for(var y2=0;y2<n;y2++){
+      for(var x2=0;x2<n;x2++){
+        if(!seedKeys[y2+'_'+x2]) options.push({x:x2,y:y2});
+      }
+    }
+    shuffleArray(options);
+    var blankCount = Math.min(options.length, Math.max(3, Math.round(n*n*0.14)));
+    var blankList = options.slice(0, blankCount);
+    var blankKeys = {};
+    blankList.forEach(function(p){
+      board[p.y][p.x] = null;
+      blankKeys[p.x+'_'+p.y] = true;
+    });
+
+    // shuffle via legal moves: any brick next to any blank can slide into it
+    var lastMove = null;
+    for(var s=0;s<cfg.shuffles;s++){
+      var candidates = [];
+      for(var bi=0; bi<blankList.length; bi++){
+        var bp = blankList[bi];
+        for(var d=0; d<DIRS.length; d++){
+          var nx = bp.x+DIRS[d].x, ny = bp.y+DIRS[d].y;
+          if(nx<0||ny<0||nx>=n||ny>=n) continue;
+          if(blankKeys[nx+'_'+ny]) continue; // that neighbor is also blank
+          if(lastMove && nx===lastMove.blockX && ny===lastMove.blockY && bp.x===lastMove.blankX && bp.y===lastMove.blankY) continue;
+          candidates.push({blockX:nx, blockY:ny, blankX:bp.x, blankY:bp.y, blankIdx:bi});
+        }
+      }
+      if(candidates.length===0) continue;
+      var pick = candidates[Math.floor(Math.random()*candidates.length)];
+      board[pick.blankY][pick.blankX] = board[pick.blockY][pick.blockX];
+      board[pick.blockY][pick.blockX] = null;
+      delete blankKeys[pick.blankX+'_'+pick.blankY];
+      blankKeys[pick.blockX+'_'+pick.blockY] = true;
+      blankList[pick.blankIdx] = {x:pick.blockX, y:pick.blockY};
+      lastMove = pick;
+    }
+
+    var gateDefs = seeds.map(function(s,i){
+      return {edge:s.edge, index:s.index, color:colorDefs[i].name};
+    });
+
+    return {n:n, board:board, gates:gateDefs};
+  }
+
+  // ---------- Rendering ----------
+  function layoutBoard(){
+    var rect = boardEl.getBoundingClientRect();
+    cellSize = rect.width / N;
+    blocks.forEach(function(b){ positionBlock(b, true); });
+    gates.forEach(function(g){ positionGate(g); });
+  }
+
+  function positionBlock(b, instant){
+    var pad = cellSize * 0.08;
+    if(instant){ b.el.style.transition = 'none'; }
+    b.el.style.width = (cellSize - pad*2) + 'px';
+    b.el.style.height = (cellSize - pad*2) + 'px';
+    b.el.style.left = (b.gridX*cellSize + pad) + 'px';
+    b.el.style.top = (b.gridY*cellSize + pad) + 'px';
+    if(instant){
+      void b.el.offsetWidth;
+      b.el.style.transition = '';
+    }
+  }
+
+  function positionGate(g){
+    var thick = Math.max(10, cellSize*0.22);
+    var len = cellSize*0.72;
+    var inset = (cellSize-len)/2;
+    if(g.edge === 'right'){
+      g.el.style.width = thick+'px'; g.el.style.height = len+'px';
+      g.el.style.left = (N*cellSize - thick*0.35)+'px';
+      g.el.style.top = (g.index*cellSize + inset)+'px';
+      g.el.style.borderRadius = '8px 14px 14px 8px';
+    } else if(g.edge==='left'){
+      g.el.style.width = thick+'px'; g.el.style.height = len+'px';
+      g.el.style.left = (-thick*0.65)+'px';
+      g.el.style.top = (g.index*cellSize + inset)+'px';
+      g.el.style.borderRadius = '14px 8px 8px 14px';
+    } else if(g.edge==='bottom'){
+      g.el.style.height = thick+'px'; g.el.style.width = len+'px';
+      g.el.style.top = (N*cellSize - thick*0.35)+'px';
+      g.el.style.left = (g.index*cellSize + inset)+'px';
+      g.el.style.borderRadius = '8px 8px 14px 14px';
+    } else {
+      g.el.style.height = thick+'px'; g.el.style.width = len+'px';
+      g.el.style.top = (-thick*0.65)+'px';
+      g.el.style.left = (g.index*cellSize + inset)+'px';
+      g.el.style.borderRadius = '14px 14px 8px 8px';
+    }
+  }
+
+  function makeBlockEl(colorName){
+    var el = document.createElement('div');
+    el.className = 'block';
+    var c = palette[colorName];
+    el.style.background = 'linear-gradient(160deg, '+c.main+', '+c.dark+')';
+    el.innerHTML = '<div class="studs"><span></span><span></span><span></span><span></span></div>';
+    return el;
+  }
+
+  function clearBoardDom(){
+    blocks.forEach(function(b){ b.el.remove(); });
+    gates.forEach(function(g){ g.el.remove(); });
+    blocks = [];
+    gates = [];
+    cellGridEl.innerHTML = '';
+  }
+
+  function loadLevel(idx){
+    dragState = null;
+    clearBoardDom();
+    animating = false;
+    var cfg = LEVEL_CONFIG[idx];
+    var lvl = buildLevel(cfg);
+    N = lvl.n;
+
+    cellGridEl.style.gridTemplateColumns = 'repeat('+N+', 1fr)';
+    cellGridEl.style.gridTemplateRows = 'repeat('+N+', 1fr)';
+    for(var c=0;c<N*N;c++){
+      var cell = document.createElement('div');
+      cell.className='cell';
+      cellGridEl.appendChild(cell);
+    }
+
+    lvl.gates.forEach(function(gDef){
+      var el = document.createElement('div');
+      el.className='gate';
+      el.style.background = palette[gDef.color].main;
+      el.style.border = '2px solid '+palette[gDef.color].dark;
+      boardEl.appendChild(el);
+      gates.push({edge:gDef.edge, index:gDef.index, color:gDef.color, el:el});
+    });
+
+    for(var y=0;y<N;y++){
+      for(var x=0;x<N;x++){
+        var colorName = lvl.board[y][x];
+        if(!colorName) continue;
+        var el = makeBlockEl(colorName);
+        boardEl.appendChild(el);
+        var b = {color:colorName, gridX:x, gridY:y, el:el};
+        attachDragHandler(b);
+        blocks.push(b);
+      }
+    }
+
+    layoutBoard();
+    updateHud();
+    buildDots();
+  }
+
+  function updateHud(){
+    levelLabelEl.textContent = (levelIndex+1)+' / '+LEVEL_CONFIG.length;
+    remainingLabelEl.textContent = blocks.length;
+    movesLabelEl.textContent = sessionMoves;
+  }
+
+  var DIRS8 = [
+    {x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1},
+    {x:1,y:1},{x:1,y:-1},{x:-1,y:1},{x:-1,y:-1}
+  ];
+
+  var dragState = null;
+
+  function findBlockAt(x,y){
+    for(var i=0;i<blocks.length;i++){
+      if(blocks[i].gridX===x && blocks[i].gridY===y) return blocks[i];
+    }
+    return null;
+  }
+
+  // All empty cells reachable from a brick's own cell, moving through empty
+  // space in any of the 8 directions (including diagonally) any number of
+  // steps &mdash; like dragging it freely across open squares.
+  function computeReachable(block){
+    var startKey = block.gridX+'_'+block.gridY;
+    var visited = {}; visited[startKey] = true;
+    var queue = [{x:block.gridX, y:block.gridY}];
+    var reachable = [];
+    while(queue.length){
+      var cur = queue.shift();
+      for(var i=0;i<DIRS8.length;i++){
+        var nx = cur.x+DIRS8[i].x, ny = cur.y+DIRS8[i].y;
+        if(nx<0||ny<0||nx>=N||ny>=N) continue;
+        var key = nx+'_'+ny;
+        if(visited[key]) continue;
+        var occupant = findBlockAt(nx,ny);
+        if(occupant && occupant!==block) continue;
+        visited[key] = true;
+        reachable.push({x:nx,y:ny});
+        queue.push({x:nx,y:ny});
+      }
+    }
+    return reachable;
+  }
+
+  function showReachGlows(cells, colorName){
+    var c = palette[colorName];
+    var glows = [];
+    var pad = cellSize * 0.1;
+    cells.forEach(function(cell){
+      var glow = document.createElement('div');
+      glow.className = 'move-glow';
+      glow.style.width = (cellSize - pad*2) + 'px';
+      glow.style.height = (cellSize - pad*2) + 'px';
+      glow.style.left = (cell.x*cellSize + pad) + 'px';
+      glow.style.top = (cell.y*cellSize + pad) + 'px';
+      glow.style.background = c.main;
+      boardEl.appendChild(glow);
+      glows.push(glow);
+    });
+    return glows;
+  }
+
+  function settleBlockAt(block, cell){
+    animating = true;
+    sfxClick();
+    sessionMoves++;
+    updateHud();
+    block.gridX = cell.x; block.gridY = cell.y;
+    positionBlock(block);
+    setTimeout(function(){
+      clearCheck(); // clearCheck/removeBlocks are responsible for releasing `animating`
+    }, 230);
+  }
+
+  function bounceBack(block){
+    sfxWall();
+    positionBlock(block); // transition already restored: glides back to its slot
+    block.el.animate([
+      {transform:'scale(1)'},{transform:'scale(0.94)'},{transform:'scale(1)'}
+    ],{duration:170, easing:'ease-out'});
+  }
+
+  var DRAG_THRESHOLD = 6; // px of movement before a tap becomes a drag
+
+  function attachDragHandler(block){
+    block.el.addEventListener('pointerdown', function(ev){
+      ev.preventDefault();
+      if(animating || dragState) return;
+      var boardRect = boardEl.getBoundingClientRect();
+      var elRect = block.el.getBoundingClientRect();
+      dragState = {
+        block: block,
+        pointerId: ev.pointerId,
+        startClientX: ev.clientX,
+        startClientY: ev.clientY,
+        baseLeft: elRect.left - boardRect.left,
+        baseTop: elRect.top - boardRect.top,
+        isDragging: false,
+        reachable: null,
+        glows: []
+      };
+      try{ block.el.setPointerCapture(ev.pointerId); }catch(e){}
+    });
+
+    block.el.addEventListener('pointermove', function(ev){
+      if(!dragState || dragState.block!==block) return;
+      var dx = ev.clientX - dragState.startClientX;
+      var dy = ev.clientY - dragState.startClientY;
+      if(!dragState.isDragging){
+        if(Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
+        dragState.isDragging = true;
+        block.el.style.transition = 'none';
+        block.el.style.zIndex = '30';
+        dragState.reachable = computeReachable(block);
+        dragState.glows = showReachGlows(dragState.reachable, block.color);
+      }
+      block.el.style.left = (dragState.baseLeft + dx) + 'px';
+      block.el.style.top = (dragState.baseTop + dy) + 'px';
+    });
+
+    function endDrag(ev){
+      if(!dragState || dragState.block!==block) return;
+      var ds = dragState;
+      dragState = null;
+      ds.glows.forEach(function(g){ g.remove(); });
+      block.el.style.zIndex = '';
+      block.el.style.transition = '';
+
+      if(!ds.isDragging){
+        // a plain tap/click: only auto-move if there's exactly one place to go
+        var reach = computeReachable(block);
+        if(reach.length===1){ settleBlockAt(block, reach[0]); }
+        else if(reach.length===0){ bounceBack(block); }
+        return;
+      }
+
+      var boardRect = boardEl.getBoundingClientRect();
+      var elRect = block.el.getBoundingClientRect();
+      var centerX = (elRect.left - boardRect.left) + elRect.width/2;
+      var centerY = (elRect.top - boardRect.top) + elRect.height/2;
+
+      if(ds.reachable.length===0){ bounceBack(block); return; }
+
+      // Snap to whichever reachable gap is CLOSEST to where you let go,
+      // rather than requiring a pixel-perfect drop on the exact cell.
+      var best = null, bestDist = Infinity;
+      ds.reachable.forEach(function(c){
+        var cx = c.x*cellSize + cellSize/2;
+        var cy = c.y*cellSize + cellSize/2;
+        var d = (cx-centerX)*(cx-centerX) + (cy-centerY)*(cy-centerY);
+        if(d < bestDist){ bestDist = d; best = c; }
+      });
+      settleBlockAt(block, best);
+    }
+
+    block.el.addEventListener('pointerup', endDrag);
+    block.el.addEventListener('pointercancel', endDrag);
+  }
+
+  function buildGrid(){
+    var grid = [];
+    for(var y=0;y<N;y++){ grid.push(new Array(N).fill(null)); }
+    blocks.forEach(function(b){ grid[b.gridY][b.gridX] = b; });
+    return grid;
+  }
+
+  function gateInteriorCell(g){
+    if(g.edge==='right') return {x:N-1, y:g.index};
+    if(g.edge==='left') return {x:0, y:g.index};
+    if(g.edge==='bottom') return {x:g.index, y:N-1};
+    return {x:g.index, y:0};
+  }
+
+  function clearCheck(){
+    var grid = buildGrid();
+    var toRemove = [];
+    var seenList = [];
+
+    function alreadyMarked(b){ return toRemove.indexOf(b) !== -1; }
+
+    gates.forEach(function(g){
+      var cell = gateInteriorCell(g);
+      var start = grid[cell.y] && grid[cell.y][cell.x];
+      if(start && start.color===g.color && !alreadyMarked(start)){
+        var stack = [start];
+        var group = [start];
+        var seen = {};
+        seen[start.gridX+'_'+start.gridY] = true;
+        while(stack.length){
+          var cur = stack.pop();
+          for(var d=0; d<DIRS.length; d++){
+            var nx = cur.gridX+DIRS[d].x, ny = cur.gridY+DIRS[d].y;
+            if(nx<0||ny<0||nx>=N||ny>=N) continue;
+            var nb = grid[ny][nx];
+            if(nb && nb.color===cur.color && !seen[nx+'_'+ny]){
+              seen[nx+'_'+ny]=true;
+              stack.push(nb);
+              group.push(nb);
+            }
+          }
+        }
+        group.forEach(function(b){ if(!alreadyMarked(b)) toRemove.push(b); });
+      }
+    });
+
+    if(toRemove.length){ removeBlocks(toRemove); } else { animating = false; }
+  }
+
+  function removeBlocks(list){
+    // Safety net: if the brick currently being dragged is about to be
+    // removed (a clear resolving while a new drag started on it), cancel
+    // that drag cleanly first so it never gets orphaned mid-gesture.
+    if(dragState && list.indexOf(dragState.block) !== -1){
+      dragState.glows.forEach(function(g){ g.remove(); });
+      dragState = null;
+    }
+    sfxScore(list.length);
+    list.forEach(function(b){ b.el.classList.add('clearing'); });
+    setTimeout(function(){
+      list.forEach(function(b){ b.el.remove(); });
+      blocks = blocks.filter(function(b){ return list.indexOf(b)===-1; });
+      updateHud();
+      animating = false;
+      if(blocks.length===0){ onLevelWin(); }
+    }, 260);
+  }
+
+  function onLevelWin(){
+    sfxWin();
+    burstConfetti();
+    if(levelIndex === LEVEL_CONFIG.length-1){
+      var newRecord = runStartedAtZero && (bestMoves===null || sessionMoves < bestMoves);
+      if(newRecord){
+        bestMoves = sessionMoves;
+        try{ localStorage.setItem('slideSortV2BestMoves', String(bestMoves)); }catch(e){}
+        refreshBestLabel();
+        showToast('All levels cleared! New best: '+sessionMoves+' moves.', 2400);
+      } else {
+        showToast('All levels cleared! Great sorting.', 2200);
+      }
+      try{ localStorage.setItem('slideSortV2Best', String(LEVEL_CONFIG.length-1)); }catch(e){}
+      setTimeout(function(){
+        sessionMoves = 0;
+        runStartedAtZero = true;
+        loadLevel(levelIndex);
+      }, 1600);
+    } else {
+      showToast('Level cleared!', 1300);
+      setTimeout(function(){
+        levelIndex++;
+        bestLevel = Math.max(bestLevel, levelIndex);
+        try{ localStorage.setItem('slideSortV2Best', String(bestLevel)); }catch(e){}
+        loadLevel(levelIndex);
+      }, 900);
+    }
+  }
+
+  function burstConfetti(){
+    var colors = PALETTE_POOL.map(function(c){ return c.main; });
+    var count = 26;
+    for(var i=0;i<count;i++){
+      var el = document.createElement('div');
+      el.className = 'confetti-piece';
+      el.style.left = (Math.random()*100)+'vw';
+      el.style.background = colors[i % colors.length];
+      el.style.animationDuration = (1.1 + Math.random()*0.9)+'s';
+      el.style.animationDelay = (Math.random()*0.25)+'s';
+      document.body.appendChild(el);
+      (function(node){ setTimeout(function(){ node.remove(); }, 2400); })(el);
+    }
+  }
+
+  resetBtn.addEventListener('click', function(){ loadLevel(levelIndex); });
+  muteBtn.addEventListener('click', function(){
+    soundOn = !soundOn;
+    muteBtn.textContent = 'Sound: ' + (soundOn ? 'on' : 'off');
+    if(soundOn) ensureCtx();
+  });
+  musicBtn.addEventListener('click', function(){
+    musicOn = !musicOn;
+    musicBtn.textContent = 'Music: ' + (musicOn ? 'on' : 'off');
+    if(musicOn) startMusic(); else stopMusic();
+  });
+
+  window.addEventListener('resize', function(){ if(N) layoutBoard(); });
+
+  refreshBestLabel();
+  loadLevel(levelIndex);
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('service-worker.js').catch(function(){ /* offline support just won't be available */ });
+  });
+}
+</script>
+</body>
+</html>
